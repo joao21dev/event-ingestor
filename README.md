@@ -67,7 +67,7 @@ This test validates that events for the same patient are processed in the correc
 *   **Verification:** After processing, a query was run against the MongoDB database, filtering by the test `patientId` and sorting by the `ts` field.
 *   **Result:** The query results show that the events were persisted in the exact order they were sent, confirming that Kafka's partitioning strategy correctly maintained the processing order.
 
-![Ordering Test Result in MongoDB]([https://ibb.co/DDhBJJDK])
+![Ordering Test Result in MongoDB](https://ibb.co/DDhBJJDK)
 
 ### Test 2: Idempotency
 
@@ -82,7 +82,7 @@ This test validates that processing an identical event multiple times does not c
 
 | JMeter Request Body (Fixed Timestamp) | Service Log (Duplicate Detected) |  MongoDB Result (Single Record)   |
 | :---: | :---: |:---------------------------------:|
-| ![JMeter Idempotency Config]([https://ibb.co/39T3fvkF]) | ![Idempotency Log]([https://ibb.co/mF0pzFjR]) | ![MongoDB Idempotency Result]([https://ibb.co/9HnqsZR4]) |
+| ![JMeter Idempotency Config](https://ibb.co/39T3fvkF ) | ![Idempotency Log](https://ibb.co/mF0pzFjR ) | ![MongoDB Idempotency Result](https://ibb.co/9HnqsZR4 ) |
 
 ### Test 3: Load Test (1000 Events Burst)
 
@@ -92,7 +92,7 @@ This test validates the API's ability to handle a sudden burst of traffic, simul
 *   **Verification:** The JMeter `Summary Report` was analyzed to check the API's performance under stress.
 *   **Result:** The API successfully handled all 1000 requests with **0% errors** and an average response time in the low milliseconds. This demonstrates that the ingestion layer can easily absorb high-volume bursts, queuing them safely in Kafka for the workers to process asynchronously.
 
-![Load Test Summary Report]([https://ibb.co/vxL8SCcb])
+![Load Test Summary Report](https://ibb.co/vxL8SCcb)
 
 ### Test 4: Fault Tolerance
 
