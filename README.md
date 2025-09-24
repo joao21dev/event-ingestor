@@ -80,10 +80,9 @@ This test validates that processing an identical event multiple times does not c
     3.  A `countDocuments` query in MongoDB confirmed that only a single record was created for the event.
 *   **Result:** The system correctly enforces idempotency at the consumer level, preventing data duplication without impacting the availability of the ingestion API.
 
-| JMeter Final Report (15 Samples) | MongoDB Final Count (13 Documents) |
-| :---: | :---: |
-| ![JMeter Final Report](./docs/images/fault-test-jmeter-final-report.png) | ![MongoDB Final Count](./docs/images/fault-test-mongo-final-count.png) |
-
+| JMeter Request Body (Fixed Timestamp) | Service Log (Duplicate Detected) |  MongoDB Result (Single Record)  |
+| :---: | :---: |:--------------------------------:|
+| ![JMeter Idempotency Config](./docs/images/test-config-idempotency-jmeter.png) | ![Idempotency Log](./docs/images/test-log-idempotency.png) | ![MongoDB Idempotency Result](./docs/images/test-result-idempotency-mongo.png)  |
 
 ### Test 3: Load Test (1000 Events Burst)
 
