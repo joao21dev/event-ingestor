@@ -1,0 +1,6 @@
+broker  | ===> User
+broker  | uid=1000(appuser) gid=1000(appuser) groups=1000(appuser)
+broker  | ===> Configuring ...
+broker  | Running in KRaft mode...
+broker  | CLUSTER_ID is required.
+broker  | Command [/usr/local/bin/dub ensure CLUSTER_ID] FAILED !

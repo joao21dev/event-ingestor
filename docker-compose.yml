@@ -1,0 +1,87 @@
+version: '3.8'
+
+services:
+  broker:
+    image: confluentinc/cp-kafka:7.6.1
+    hostname: broker
+    container_name: broker
+    ports:
+      - "9092:9092"
+      - "29092:29092"
+    environment:
+      # --- KRaft ---
+      CLUSTER_ID: 'ciV53Vb2S2qU4dGg3AUNHg'
+      KAFKA_PROCESS_ROLES: 'broker,controller'
+      KAFKA_CONTROLLER_QUORUM_VOTERS: '1@broker:9093'
+      # --- Listeners ---
+      KAFKA_LISTENERS: 'PLAINTEXT://broker:29092,CONTROLLER://broker:9093,PLAINTEXT_HOST://0.0.0.0:9092'
+      KAFKA_ADVERTISED_LISTENERS: 'PLAINTEXT://broker:29092,PLAINTEXT_HOST://localhost:9092'
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: 'CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT'
+      KAFKA_CONTROLLER_LISTENER_NAMES: 'CONTROLLER' # <-- ADICIONE ESTA LINHA
+      # --- General ---
+      KAFKA_BROKER_ID: 1
+      KAFKA_NODE_ID: 1
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_CREATE_TOPICS: "events:10:1"
+    healthcheck:
+      test: ["CMD-SHELL", "kafka-topics --bootstrap-server broker:29092 --list"]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+      start_period: 40s
+
+  mongo:
+    image: mongo:latest
+    container_name: mongo
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=root
+      - MONGO_INITDB_ROOT_PASSWORD=example
+
+  kafka-setup:
+    image: confluentinc/cp-kafka:7.6.1
+    container_name: kafka-setup
+    depends_on:
+      broker:
+        condition: service_healthy
+    entrypoint: [ '/bin/sh', '-c' ]
+    command: |
+      "
+      echo 'Aguardando o Kafka responder...'
+      
+      # Loop que tenta listar os tópicos até o comando ser bem-sucedido
+      until kafka-topics --bootstrap-server broker:29092 --list; do
+        echo 'Kafka ainda não está pronto, aguardando 5 segundos...'
+        sleep 5
+      done
+      
+      echo 'Kafka pronto! Criando o tópico events...'
+      kafka-topics --bootstrap-server broker:29092 --create --if-not-exists --topic events --partitions 10 --replication-factor 1
+      
+      echo 'Tópico criado com sucesso.'
+      "
+
+  ingest-service:
+    container_name: ingest-service
+    build:
+      context: .
+      dockerfile: Dockerfile
+    depends_on:
+      kafka-setup:
+        condition: service_completed_successfully
+      mongo:
+        condition: service_started
+    ports:
+      - "3000:3000"
+    environment:
+      KAFKA_BROKER: "broker:29092"
+      MONGO_URI: "mongodb://root:example@mongo:27017/ingest-db?authSource=admin"
+      PORT: 3000
+
+volumes:
+  mongo-data:
