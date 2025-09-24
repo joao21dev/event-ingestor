@@ -1,4 +1,3 @@
-// src/events.controller.ts
 import { Controller, Logger } from '@nestjs/common';
 import { Ctx, KafkaContext, MessagePattern, Payload } from '@nestjs/microservices';
 import { InjectModel } from "@nestjs/mongoose";
@@ -14,20 +13,17 @@ export class EventsController {
         @InjectModel(ProcessedEvent.name) private eventModel: Model<EventDocument>,
     ) {}
 
-    // --- A VERSÃO CORRETA E SIMPLIFICADA ---
     @MessagePattern('events')
     async processEvent(
-        @Payload() message: EventDto, // Recebemos o objeto já analisado (parsed)
+        @Payload() message: EventDto,
         @Ctx() context: KafkaContext,
     ) {
-        // ---------------------------------------
 
         const topic = context.getTopic();
         const partition = context.getPartition();
         const offset = context.getMessage().offset;
         this.logger.log(`Processing event topic ${topic} [partition ${partition} | offset ${offset}]...`);
 
-        // Agora 'message' é o objeto correto, então podemos usá-lo diretamente.
         const eventId = `${message.patientId}-${message.ts}`;
 
         try {

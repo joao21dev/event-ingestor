@@ -1,98 +1,128 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# Event Ingestor Service
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+This project implements a high-performance event ingestion service, designed to be resilient, scalable, and fault-tolerant. The application is built with **NestJS**, leveraging **Kafka** as a message broker and **MongoDB** for data persistence, all orchestrated with **Docker Compose**.
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+The system is capable of receiving a high volume of events via an HTTP endpoint, processing them asynchronously, and ensuring in-order processing per patient, even under heavy load.
 
-## Description
+## Core Features
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+*   **Asynchronous Ingestion:** The API endpoint responds in milliseconds by queuing events in Kafka for background processing.
+*   **Ordered Processing:** Guarantees that events for the same `patientId` are processed in the order they are received.
+*   **Idempotency:** Processing the same event multiple times produces the same result as processing it once, preventing data duplication.
+*   **Fault Tolerance:** The system is designed to prevent event loss, even if the processing service fails and restarts.
+*   **Horizontal Scalability:** The architecture allows for scaling out the number of workers to increase processing throughput as demand grows.
+*   **API Documentation:** The API is self-documented using Swagger (OpenAPI), available at `http://localhost:3000/api-docs`.
 
-## Project setup
+## Solution Architecture
 
-```bash
-$ npm install
-```
+To meet the requirements of high throughput and slow processing (~5s per event ), an event-driven architecture was implemented:
 
-## Compile and run the project
+1.  **API (Producer):** A `POST /events` endpoint in NestJS receives the request. Its sole responsibility is to validate the payload and immediately publish it to a Kafka topic.
+2.  **Message Broker (Kafka):** Acts as a durable and scalable buffer, decoupling the ingestion layer from the processing layer. The `patientId` is used as the partition key to guarantee ordering.
+3.  **Worker (Consumer):** A background process (within the same NestJS service) consumes messages from the Kafka topic, executes the 5-second business logic, and persists the result to MongoDB.
 
-```bash
-# development
-$ npm run start
 
-# watch mode
-$ npm run start:dev
+## Tech Stack
 
-# production mode
-$ npm run start:prod
-```
+*   **Backend:** NestJS (TypeScript)
+*   **Database:** MongoDB
+*   **Messaging:** Apache Kafka (in KRaft mode)
+*   **Containerization:** Docker & Docker Compose
+*   **Validation:** `class-validator`, `class-transformer`
+*   **API Documentation:** Swagger (OpenAPI)
 
-## Run tests
+## Getting Started
 
-```bash
-# unit tests
-$ npm run test
+### Prerequisites
 
-# e2e tests
-$ npm run test:e2e
+*   Docker
+*   Docker Compose
 
-# test coverage
-$ npm run test:cov
-```
+### Running the Project
 
-## Deployment
+1.  **Clone the repository:**
+    ```bash
+    git clone https://github.com/joao21dev/event-ingestor.git
+    cd event-ingestor
+    ```
 
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
+2.  **Build and start the containers:**
+    ```bash
+    docker-compose up --build
+    ```
 
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
+3.  **Access the application:**
+    *   **API Endpoint:** The service is available at `http://localhost:3000`.
+    *   **API Documentation (Swagger ):** `http://localhost:3000/api-docs`.
 
-```bash
-$ npm install -g @nestjs/mau
-$ mau deploy
-```
+## Validation Tests (JMeter )
 
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
+A series of tests were conducted using Apache JMeter to validate the core non-functional requirements of the system.
 
-## Resources
+### Test 1: In-Order Processing per `patientId`
 
-Check out a few resources that may come in handy when working with NestJS:
+This test validates that events for the same patient are processed in the correct order.
 
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
+*   **Methodology:** A JMeter script sent a rapid sequence of events for a single `patientId` (`paciente-fixo-001`), each with a unique, chronologically increasing timestamp.
+*   **Verification:** After processing, a query was run against the MongoDB database, filtering by the test `patientId` and sorting by the `ts` field.
+*   **Result:** The query results show that the events were persisted in the exact order they were sent, confirming that Kafka's partitioning strategy correctly maintained the processing order.
 
-## Support
+![Ordering Test Result in MongoDB]([https://ibb.co/DDhBJJDK])
 
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
+### Test 2: Idempotency
 
-## Stay in touch
+This test validates that processing an identical event multiple times does not create duplicate records.
 
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
+*   **Methodology:** A JMeter script sent the exact same request (same `patientId` and a **fixed** `ts`) multiple times to the API.
+*   **Verification:**
+    1.  The API accepted all requests, responding with `202 Accepted`.
+    2.  The service logs show that only the first event was fully processed, while subsequent identical events were identified as duplicates and discarded.
+    3.  A `countDocuments` query in MongoDB confirmed that only a single record was created for the event.
+*   **Result:** The system correctly enforces idempotency at the consumer level, preventing data duplication without impacting the availability of the ingestion API.
 
-## License
+| JMeter Request Body (Fixed Timestamp) | Service Log (Duplicate Detected) |  MongoDB Result (Single Record)   |
+| :---: | :---: |:---------------------------------:|
+| ![JMeter Idempotency Config]([https://ibb.co/39T3fvkF]) | ![Idempotency Log]([https://ibb.co/mF0pzFjR]) | ![MongoDB Idempotency Result]([https://ibb.co/9HnqsZR4]) |
 
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+### Test 3: Load Test (1000 Events Burst)
+
+This test validates the API's ability to handle a sudden burst of traffic, simulating the "1000 events/min" requirement.
+
+*   **Methodology:** A JMeter script was configured with 100 threads and a loop count of 10, firing a total of **1000 requests** in a very short period (ramp-up of 1 second).
+*   **Verification:** The JMeter `Summary Report` was analyzed to check the API's performance under stress.
+*   **Result:** The API successfully handled all 1000 requests with **0% errors** and an average response time in the low milliseconds. This demonstrates that the ingestion layer can easily absorb high-volume bursts, queuing them safely in Kafka for the workers to process asynchronously.
+
+![Load Test Summary Report]([https://ibb.co/vxL8SCcb])
+
+### Test 4: Fault Tolerance
+
+This test validates the system's resilience by simulating an unexpected crash of the application service.
+
+*   **Methodology:** A continuous stream of events was sent from JMeter. During the test, after 15 successful requests were sent, the `ingest-service` container was abruptly stopped. After a brief outage, the service was restarted.
+
+*   **Verification:** The final count of documents in MongoDB was compared against the total number of requests sent by JMeter before the crash.
+
+*   **Result:** JMeter reported 15 successful requests before the service was stopped. After recovery, MongoDB contained 13 documents. This discrepancy of 2 events demonstrates a known trade-off in this architecture: there is a brief window between the API accepting a request and the message being durably persisted in Kafka. A crash within this window can lead to data loss.
+
+*   **Conclusion:** The test confirms that **all data successfully written to Kafka is durable and processed upon recovery**. The observed data loss is an expected behavior for a "fire-and-forget" producer configuration. This can be fully mitigated in a production scenario by configuring the Kafka producer with **`acks: -1`** (all) and ensuring the application code awaits broker acknowledgement. This change would guarantee message delivery at the cost of slightly increased API latency.
+
+
+## Scalability Analysis
+
+The "1000 events/min" requirement was addressed on two fronts: **ingestion capacity** and **end-to-end processing throughput**.
+
+1.  **Ingestion Capacity:** The API endpoint is designed to be asynchronous and non-blocking. As validated by the load test, the API can handle a request rate far exceeding 1000/min with average response times in the low milliseconds.
+
+2.  **Processing Throughput:** The end-to-end processing, which includes the 5-second simulated delay, is the system's bottleneck. To achieve a throughput of 1000 events/min, the architecture is designed for horizontal scaling. By using **10 partitions** in the Kafka topic, we can scale out to **10 parallel workers**, achieving a theoretical processing capacity of **1200 events/min**, which satisfies the requirement.
+
+    *   **Capacity Calculation:** (1 event / 5 sec) * 60 sec/min = 12 events/min per worker.
+    *   **Total Capacity:** 12 events/min/worker * 10 workers = 1200 events/min.
+
+## Future Improvements
+
+While the current solution is robust, several areas could be enhanced in a production environment:
+
+1.  **Dead Letter Queue (DLQ):** Implement a DLQ topic in Kafka to handle "poison pill" messages that repeatedly fail processing, preventing them from blocking a partition.
+2.  **Monitoring and Observability:** Integrate tools like **Prometheus** and **Grafana** to expose application and Kafka metrics for real-time health monitoring.
+3.  **Advanced Retry Logic:** Implement an exponential backoff strategy in the Kafka consumer to handle transient failures more gracefully.
+4.  **Automated Testing:** Add a comprehensive suite of unit and integration tests (`testcontainers`) to validate the system's behavior in a CI/CD pipeline.
