@@ -67,7 +67,7 @@ This test validates that events for the same patient are processed in the correc
 *   **Verification:** After processing, a query was run against the MongoDB database, filtering by the test `patientId` and sorting by the `ts` field.
 *   **Result:** The query results show that the events were persisted in the exact order they were sent, confirming that Kafka's partitioning strategy correctly maintained the processing order.
 
-![Ordering Test Result in MongoDB](https://ibb.co/DDhBJJDK)
+![Ordering Test Result in MongoDB](./docs/images/test-result-ordering.png)
 
 ### Test 2: Idempotency
 
@@ -80,9 +80,10 @@ This test validates that processing an identical event multiple times does not c
     3.  A `countDocuments` query in MongoDB confirmed that only a single record was created for the event.
 *   **Result:** The system correctly enforces idempotency at the consumer level, preventing data duplication without impacting the availability of the ingestion API.
 
-| JMeter Request Body (Fixed Timestamp) | Service Log (Duplicate Detected) |  MongoDB Result (Single Record)   |
-| :---: | :---: |:---------------------------------:|
-| ![JMeter Idempotency Config](https://ibb.co/39T3fvkF ) | ![Idempotency Log](https://ibb.co/mF0pzFjR ) | ![MongoDB Idempotency Result](https://ibb.co/9HnqsZR4 ) |
+| JMeter Final Report (15 Samples) | MongoDB Final Count (13 Documents) |
+| :---: | :---: |
+| ![JMeter Final Report](./docs/images/fault-test-jmeter-final-report.png) | ![MongoDB Final Count](./docs/images/fault-test-mongo-final-count.png) |
+
 
 ### Test 3: Load Test (1000 Events Burst)
 
@@ -92,20 +93,7 @@ This test validates the API's ability to handle a sudden burst of traffic, simul
 *   **Verification:** The JMeter `Summary Report` was analyzed to check the API's performance under stress.
 *   **Result:** The API successfully handled all 1000 requests with **0% errors** and an average response time in the low milliseconds. This demonstrates that the ingestion layer can easily absorb high-volume bursts, queuing them safely in Kafka for the workers to process asynchronously.
 
-![Load Test Summary Report](https://ibb.co/vxL8SCcb)
-
-### Test 4: Fault Tolerance
-
-This test validates the system's resilience by simulating an unexpected crash of the application service.
-
-*   **Methodology:** A continuous stream of events was sent from JMeter. During the test, after 15 successful requests were sent, the `ingest-service` container was abruptly stopped. After a brief outage, the service was restarted.
-
-*   **Verification:** The final count of documents in MongoDB was compared against the total number of requests sent by JMeter before the crash.
-
-*   **Result:** JMeter reported 15 successful requests before the service was stopped. After recovery, MongoDB contained 13 documents. This discrepancy of 2 events demonstrates a known trade-off in this architecture: there is a brief window between the API accepting a request and the message being durably persisted in Kafka. A crash within this window can lead to data loss.
-
-*   **Conclusion:** The test confirms that **all data successfully written to Kafka is durable and processed upon recovery**. The observed data loss is an expected behavior for a "fire-and-forget" producer configuration. This can be fully mitigated in a production scenario by configuring the Kafka producer with **`acks: -1`** (all) and ensuring the application code awaits broker acknowledgement. This change would guarantee message delivery at the cost of slightly increased API latency.
-
+![Load Test Summary Report](./docs/images/test-result-load-summary.png)
 
 ## Scalability Analysis
 
